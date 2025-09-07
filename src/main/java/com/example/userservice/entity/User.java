@@ -42,7 +42,7 @@ public class User {
         return name;
     }
 
-    public String getEmaile() {
+    public String getEmail() {
         return email;
     }
 
