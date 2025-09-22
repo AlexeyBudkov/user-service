@@ -1,36 +1,52 @@
 package com.example.userservice.controller;
 
-import com.example.userservice.dao.UserDao;
-import com.example.userservice.dao.UserDaoImpl;
-import com.example.userservice.entity.User;
+import com.example.userservice.dto.UserRequest;
+import com.example.userservice.dto.UserResponse;
 import com.example.userservice.service.UserService;
-import com.example.userservice.service.UserServiceImpl;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
+@RestController
+@RequestMapping("/api/users")
 public class UserController {
 
-    private final UserService userService;
+    private final UserService service;
 
-    public UserController() {
-        UserDao userDao = new UserDaoImpl(); // твоя реализация DAO
-        this.userService = new UserServiceImpl(userDao);
+    public UserController(UserService service) {
+        this.service = service;
     }
 
-    public Optional<User> getUser(Long id) {
-        return userService.getUserById(id);
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserResponse create(@RequestBody UserRequest request) {
+        return service.create(request);
     }
 
-    public List<User> getAllUsers() {
-        return userService.getAllUsers();
+    @GetMapping("/{id}")
+    public UserResponse getById(@PathVariable Long id) {
+        return service.getById(id);
     }
 
-    public User createUser(User user) {
-        return userService.createUser(user);
+    @GetMapping
+    public List<UserResponse> getAll() {
+        return service.getAll();
     }
 
-    public boolean deleteUser(Long id) {
-        return userService.deleteUser(id);
+    @PutMapping("/{id}")
+    public UserResponse update(@PathVariable Long id, @RequestBody UserRequest request) {
+        return service.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        service.delete(id);
+    }
+
+    @GetMapping("/by-email")
+    public UserResponse getByEmail(@RequestParam String email) {
+        return service.getByEmail(email);
     }
 }
