@@ -2,17 +2,21 @@ package com.example.userservice.controller;
 
 import com.example.userservice.dto.UserRequest;
 import com.example.userservice.entity.User;
+import com.example.userservice.events.UserEventProducer;
 import com.example.userservice.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -29,12 +33,16 @@ class UserControllerEdgeCasesTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private UserEventProducer userEventProducer;
+
     @BeforeEach
     void cleanDb() {
         repo.deleteAll();
     }
 
     @Test
+    @DisplayName("POST /api/users — имя слишком короткое, ожидаем 400")
     void createUser_InvalidName_JSON() throws Exception {
         UserRequest req = new UserRequest("A", "alex@example.com", 30);
 
@@ -49,6 +57,7 @@ class UserControllerEdgeCasesTest {
     }
 
     @Test
+    @DisplayName("GET /api/users/{id} — пользователь не найден, ожидаем 404")
     void getById_NotFound_JSON() throws Exception {
         mockMvc.perform(get("/api/users/{id}", 999))
                 .andExpect(status().isNotFound())
@@ -59,8 +68,10 @@ class UserControllerEdgeCasesTest {
     }
 
     @Test
+    @DisplayName("PUT /api/users/{id} — email уже существует, ожидаем 400")
     void updateUser_EmailAlreadyExists_JSON() throws Exception {
-        User existing1 = repo.save(new User(null, "Alex", "alex@example.com", 30));
+
+        repo.save(new User(null, "Alex", "alex@example.com", 30));
         User existing2 = repo.save(new User(null, "Bob", "bob@example.com", 25));
 
         UserRequest req = new UserRequest("Bob Updated", "alex@example.com", 26);

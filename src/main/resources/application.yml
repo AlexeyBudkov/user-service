@@ -1,11 +1,83 @@
+server:
+  port: 8081
+  error:
+    include-stacktrace: always
+    include-message: always
+    include-binding-errors: always
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/user_service
     username: user_service_app
     password: user_service_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 20000
+      pool-name: HikariCP
+
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.example.notificationservice.model.UserEvent
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      request.timeout.ms: 2000   # быстрый таймаут для health-check
+
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+
+app:
+  kafka:
+    topic: user-events
+  mail:
+    from: no-reply@your-site.com
+
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      enabled: true
+      show-details: always
+  health:
+    defaults:
+      enabled: false
+    ping:
+      enabled: true
+    db:
+      enabled: true
+    mail:
+      enabled: true
+    kafka:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.boot.actuate: DEBUG

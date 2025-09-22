@@ -3,6 +3,8 @@ package com.example.userservice.service.impl;
 import com.example.userservice.dto.UserRequest;
 import com.example.userservice.dto.UserResponse;
 import com.example.userservice.entity.User;
+import com.example.userservice.events.UserEvent;
+import com.example.userservice.events.UserEventProducer;
 import com.example.userservice.exception.NotFoundException;
 import com.example.userservice.mapper.UserMapper;
 import com.example.userservice.repository.UserRepository;
@@ -20,26 +22,38 @@ public class UserServiceImpl implements UserService {
     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
 
     private final UserRepository repo;
+    private final UserEventProducer producer;
 
-    public UserServiceImpl(UserRepository repo) {
+    public UserServiceImpl(UserRepository repo, UserEventProducer producer) {
         this.repo = repo;
+        this.producer = producer;
     }
 
     @Override
     public UserResponse create(UserRequest request) {
-        validateUser(request);
-
-        if (repo.findByEmail(request.getEmail()).isPresent()) {
-            log.warn("Попытка создать пользователя с уже существующим email: {}", request.getEmail());
-            throw new IllegalArgumentException("Пользователь с таким email уже существует");
-        }
-
+        log.info(">>> create() called with: name={}, email={}, age={}",
+                request != null ? request.getName() : null,
+                request != null ? request.getEmail() : null,
+                request != null ? request.getAge() : null);
         try {
+            validateUser(request);
+
+            if (repo.findByEmail(request.getEmail()).isPresent()) {
+                log.warn("Попытка создать пользователя с уже существующим email: {}", request.getEmail());
+                throw new IllegalArgumentException("Пользователь с таким email уже существует");
+            }
+
             User saved = repo.save(UserMapper.toEntity(request));
             log.info("Пользователь с ID {} создан", saved.getId());
+
+            producer.send(UserEvent.created(saved.getEmail(), saved.getAge()));
+
             return UserMapper.toResponse(saved);
         } catch (DataIntegrityViolationException e) {
-            log.error("Ошибка при создании пользователя: {}", e.getMostSpecificCause().getMessage());
+            log.error("Ошибка при создании пользователя (DataIntegrityViolation): {}", e.getMostSpecificCause().getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Неожиданная ошибка при создании пользователя", e);
             throw e;
         }
     }
@@ -102,8 +116,12 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Некорректный ID");
         }
         if (repo.existsById(id)) {
+            User existing = repo.findById(id).orElseThrow();
             repo.deleteById(id);
             log.info("Пользователь с ID {} удалён", id);
+
+            producer.send(UserEvent.deleted(existing.getEmail(), existing.getAge()));
+
         } else {
             log.warn("Пользователь с ID {} не найден для удаления", id);
             throw new NotFoundException("Пользователь с id=" + id + " не найден");
