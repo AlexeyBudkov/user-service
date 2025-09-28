@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 
@@ -22,9 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
                 com.example.notificationservice.NotificationServiceApp.class
         }
 )
-@EmbeddedKafka(partitions = 1, topics = {"user-events"},
-        brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
+@EmbeddedKafka(
+        partitions = 1,
+        topics = {"user-events"},
+        brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"}
+)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ActiveProfiles("test")
 class UserToNotificationE2EIT {
 
     @Autowired
@@ -34,14 +39,8 @@ class UserToNotificationE2EIT {
 
     @BeforeAll
     void setup() {
-        // Запускаем тестовый SMTP
         greenMail = new GreenMail(new ServerSetup(3025, null, "smtp"));
         greenMail.start();
-
-        System.setProperty("spring.mail.host", "localhost");
-        System.setProperty("spring.mail.port", "3025");
-        System.setProperty("spring.mail.properties.mail.smtp.auth", "false");
-        System.setProperty("spring.mail.properties.mail.smtp.starttls.enable", "false");
     }
 
     @AfterAll
@@ -50,28 +49,23 @@ class UserToNotificationE2EIT {
     }
 
     @Test
-    void createUser_shouldTriggerCreatedEmail() {
-        // 1. Создаём пользователя
+    void createUser_shouldTriggerCreatedAndDeletedEmail() {
         UserRequest request = new UserRequest();
         request.setName("Alex");
         request.setEmail("alex@example.com");
 
         Long userId = restTemplate.postForEntity("/users", request, Long.class).getBody();
 
-        // 2. Ждём письмо
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             MimeMessage[] messages = greenMail.getReceivedMessages();
             assertEquals(1, messages.length);
             assertEquals("Аккаунт создан", messages[0].getSubject());
         });
 
-        // 3. Очищаем почтовый ящик перед следующим тестом
         greenMail.purgeEmailFromAllMailboxes();
 
-        // 4. Удаляем пользователя
         restTemplate.delete("/users/{id}", userId);
 
-        // 5. Ждём письмо об удалении
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             MimeMessage[] messages = greenMail.getReceivedMessages();
             assertEquals(1, messages.length);

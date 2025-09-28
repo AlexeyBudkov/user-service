@@ -40,7 +40,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     properties:
-      request.timeout.ms: 2000   # быстрый таймаут для health-check
+      request.timeout.ms: 2000
 
   mail:
     host: localhost

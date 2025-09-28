@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = {"user-events"}, brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class NotificationServiceKafkaEmailIT {
+class NotificationServiceKafkaEmailTest {
 
     @Autowired
     private EmbeddedKafkaBroker embeddedKafka;

@@ -3,7 +3,7 @@ package com.example.userservice.service.impl;
 import com.example.userservice.dto.UserRequest;
 import com.example.userservice.dto.UserResponse;
 import com.example.userservice.entity.User;
-import com.example.userservice.events.UserEvent;
+import com.example.userservice.events.UserEventFactory;
 import com.example.userservice.events.UserEventProducer;
 import com.example.userservice.exception.NotFoundException;
 import com.example.userservice.mapper.UserMapper;
@@ -32,12 +32,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse create(UserRequest request) {
         log.info(">>> create() called with: name={}, email={}, age={}",
-                request != null ? request.getName() : null,
-                request != null ? request.getEmail() : null,
-                request != null ? request.getAge() : null);
+                request.getName(), request.getEmail(), request.getAge());
         try {
-            validateUser(request);
-
             if (repo.findByEmail(request.getEmail()).isPresent()) {
                 log.warn("Попытка создать пользователя с уже существующим email: {}", request.getEmail());
                 throw new IllegalArgumentException("Пользователь с таким email уже существует");
@@ -46,7 +42,7 @@ public class UserServiceImpl implements UserService {
             User saved = repo.save(UserMapper.toEntity(request));
             log.info("Пользователь с ID {} создан", saved.getId());
 
-            producer.send(UserEvent.created(saved.getEmail(), saved.getAge()));
+            producer.sendCreated(saved.getEmail(), saved.getAge());
 
             return UserMapper.toResponse(saved);
         } catch (DataIntegrityViolationException e) {
@@ -85,7 +81,6 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse update(Long id, UserRequest request) {
-        validateUser(request);
         if (!isValidId(id)) {
             throw new IllegalArgumentException("ID пользователя обязателен для обновления");
         }
@@ -120,7 +115,7 @@ public class UserServiceImpl implements UserService {
             repo.deleteById(id);
             log.info("Пользователь с ID {} удалён", id);
 
-            producer.send(UserEvent.deleted(existing.getEmail(), existing.getAge()));
+            producer.sendDeleted(existing.getEmail(), existing.getAge());
 
         } else {
             log.warn("Пользователь с ID {} не найден для удаления", id);
@@ -144,17 +139,5 @@ public class UserServiceImpl implements UserService {
 
     private boolean isValidId(Long id) {
         return id != null && id > 0;
-    }
-
-    private void validateUser(UserRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Пользователь не может быть null");
-        }
-        if (request.getName() == null || request.getName().isBlank() || request.getName().length() < 2) {
-            throw new IllegalArgumentException("Имя должно содержать минимум 2 символа и не быть пустым");
-        }
-        if (request.getEmail() == null || !request.getEmail().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
-            throw new IllegalArgumentException("Некорректный email");
-        }
     }
 }

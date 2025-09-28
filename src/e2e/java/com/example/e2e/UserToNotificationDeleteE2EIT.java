@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 
@@ -22,8 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
                 com.example.notificationservice.NotificationServiceApp.class
         }
 )
-@EmbeddedKafka(partitions = 1, topics = {"user-events"}, brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
+@EmbeddedKafka(
+        partitions = 1,
+        topics = {"user-events"},
+        brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"}
+)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ActiveProfiles("test")
 class UserToNotificationDeleteE2EIT {
 
     @Autowired
@@ -33,14 +39,8 @@ class UserToNotificationDeleteE2EIT {
 
     @BeforeAll
     void setup() {
-        // Запускаем тестовый SMTP
         greenMail = new GreenMail(new ServerSetup(3025, null, "smtp"));
         greenMail.start();
-
-        System.setProperty("spring.mail.host", "localhost");
-        System.setProperty("spring.mail.port", "3025");
-        System.setProperty("spring.mail.properties.mail.smtp.auth", "false");
-        System.setProperty("spring.mail.properties.mail.smtp.starttls.enable", "false");
     }
 
     @AfterAll
@@ -50,20 +50,16 @@ class UserToNotificationDeleteE2EIT {
 
     @Test
     void deleteUser_shouldTriggerDeletedEmail() {
-        // 1. Сначала создаём пользователя, чтобы было что удалять
         UserRequest request = new UserRequest();
         request.setName("Alex");
         request.setEmail("alex@example.com");
 
         Long userId = restTemplate.postForEntity("/users", request, Long.class).getBody();
 
-        // 2. Очищаем почтовый ящик перед удалением
         greenMail.purgeEmailFromAllMailboxes();
 
-        // 3. Удаляем пользователя
         restTemplate.delete("/users/{id}", userId);
 
-        // 4. Ждём письмо от notification-service
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             MimeMessage[] messages = greenMail.getReceivedMessages();
             assertEquals(1, messages.length);
