@@ -40,7 +40,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     properties:
-      request.timeout.ms: 2000   # быстрый таймаут для health-check
+      request.timeout.ms: 2000
 
   mail:
     host: localhost
@@ -81,3 +81,13 @@ logging:
   level:
     root: INFO
     org.springframework.boot.actuate: DEBUG
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui
+    operationsSorter: alpha
+    tagsSorter: alpha
