@@ -9,6 +9,7 @@ import com.example.userservice.exception.NotFoundException;
 import com.example.userservice.mapper.UserMapper;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.service.UserService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,6 +31,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CircuitBreaker(name = "externalService", fallbackMethod = "fallbackCreate")
     public UserResponse create(UserRequest request) {
         log.info(">>> create() called with: name={}, email={}, age={}",
                 request.getName(), request.getEmail(), request.getAge());
@@ -52,6 +54,11 @@ public class UserServiceImpl implements UserService {
             log.error("Неожиданная ошибка при создании пользователя", e);
             throw e;
         }
+    }
+
+    private UserResponse fallbackCreate(UserRequest request, Throwable ex) {
+        log.error("⚡ Fallback при создании пользователя {}: {}", request.getEmail(), ex.getMessage());
+        throw new RuntimeException("Сервис временно недоступен, попробуйте позже");
     }
 
     @Override
@@ -105,6 +112,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CircuitBreaker(name = "externalService", fallbackMethod = "fallbackDelete")
     public void delete(Long id) {
         if (!isValidId(id)) {
             log.warn("Некорректный ID для удаления: {}", id);
@@ -121,6 +129,10 @@ public class UserServiceImpl implements UserService {
             log.warn("Пользователь с ID {} не найден для удаления", id);
             throw new NotFoundException("Пользователь с id=" + id + " не найден");
         }
+    }
+
+    private void fallbackDelete(Long id, Throwable ex) {
+        log.error("⚡ Fallback при удалении пользователя {}: {}", id, ex.getMessage());
     }
 
     @Override
